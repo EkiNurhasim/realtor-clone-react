@@ -1,9 +1,14 @@
 import React, { useState } from "react";
 import { IoEye, IoEyeOff } from "react-icons/io5";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import OAuth from "../components/OAuth";
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { db } from "../firebase";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { toast } from "react-toastify";
 
 export const SignUp = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -18,6 +23,31 @@ export const SignUp = () => {
     });
   };
 
+  const onSubmit = async (event) => {
+    event.preventDefault();
+
+    try {
+      // Authentication
+      const auth = getAuth();
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password); // menyimpan data authentication email dan password ke firebase auth
+
+      updateProfile(auth.currentUser, {
+        displayName: name,
+      }); // menambahkan data displayName kedalam auth user
+
+      // Firestore Database
+      const user = userCredential.user; // mengambil credential dari user
+      const formDataCopy = { ...formData }; // distructuring data
+      delete formDataCopy.password; // hapus data password pada object
+      formDataCopy.timestamp = serverTimestamp(); // menambahkan data object timestamp
+      await setDoc(doc(db, "users", user.uid), formDataCopy); // simpan ke dalam firestore database dengan collection "users" dan document 'user.uid' dan dengan data formDataCopy
+      toast.success("Sign up was successful");
+      navigate("/");
+    } catch (error) {
+      toast.error("Something went wrong with registration");
+    }
+  };
+
   return (
     <section>
       <h1 className="text-3xl text-center mt-6 font-bold">Sign Up</h1>
@@ -30,7 +60,7 @@ export const SignUp = () => {
           />
         </div>
         <div className="w-full md:w-[67%] lg:w-[40%] lg:ml-20">
-          <form>
+          <form onSubmit={onSubmit}>
             <input
               type="text"
               id="name"
